@@ -68,7 +68,7 @@ class Sample(BaseModel):
     isLocked: bool
     lastResourceStateChange: str
     name: str
-    ownerData: OwnerData
+    ownerData: Optional[OwnerData]
     tags: str
 
 
