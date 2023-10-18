@@ -1,0 +1,4 @@
+requests~=2.27.0
+loguru~=0.5.3
+aws-lambda-powertools~=1.14.0
+pydantic~=1.8.1
