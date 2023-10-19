@@ -20,59 +20,30 @@ firefly_session_token = FireflySession(
                          secret_key=SETTINGS.firefly_secret_key))
 
 
-def get_inventory(notification_event):
-    url = SETTINGS.firefly_api_url + INVENTORY_ROUTE
-    frns = []
-    for sample in notification_event.samples:
-        frns.append(sample.FRN)
+def fix_drift(notification_sample):
+    url = SETTINGS.firefly_api_url + SEARCH_AND_FIX_DRIFT_ROUTE
 
-    # TODO - pagination
+    # check mandatory properties for fixing drift
+    if notification_sample.FRN == "" or notification_sample.drifts == "":
+        logger.warning(f"missing mandatory properties for fixing drift.", resource=notification_sample)
+        return
+
     payload = {
-        "frns": frns,
-        "pageNumber": 1
+        "frn": notification_sample.FRN,
+        "drifts": [model.dict() for model in notification_sample.drifts],
+        "fixFirstOccurrence": True,
+        "prComment": SETTINGS.fix_drift_pr_message,
+        "requestSource": "fix_drift_lambda"
     }
     headers = {
         'Authorization': f'Bearer {firefly_session_token.accessToken}'
     }
     response = requests.post(url, json=payload, headers=headers)
+
     if response.status_code == 200:
-        logger.info("get inventory was successful.")
-        return response.json()
+        logger.info(f"created PR for fixing drift.", resource=notification_sample, pr_response=response.text)
     else:
-        logger.error(
-            f"get inventory request failed.", status_code=response.status_code, response_content=response.text)
-        raise Exception(f"Could not get inventory items token. reason={response.text}")
-
-
-def fix_drift(drift_resources):
-    url = SETTINGS.firefly_api_url + SEARCH_AND_FIX_DRIFT_ROUTE
-
-    for drift_resource in drift_resources:
-        # check mandatory properties for fixing drift
-        if drift_resource["vcsId"] == "" or drift_resource["terraformObjectReferencesAncestry"] == "" \
-                or drift_resource["drift"] == "":
-            logger.warning(f"missing mandatory properties for fixing drift.", resource=drift_resource)
-            continue
-
-        payload = {
-            "frn": drift_resource["frn"],
-            "vcsId": drift_resource["vcsId"],
-            "vcsWorkingDir": drift_resource["vcsWorkingDirectory"],
-            "references": drift_resource["terraformObjectReferencesAncestry"],
-            "drifts": drift_resource["drift"],
-            "fixFirstOccurrence": True,
-            "prComment": SETTINGS.fix_drift_pr_message,
-            "requestSource": "fix_drift_lambda"
-        }
-        headers = {
-            'Authorization': f'Bearer {firefly_session_token.accessToken}'
-        }
-        response = requests.post(url, json=payload, headers=headers)
-
-        if response.status_code == 200:
-            logger.info(f"created PR for fixing drift.", resource=drift_resource, pr_response=response.text)
-        else:
-            logger.warning(DRIFT_WAS_PROBABLY_FIXED_MESSAGE, resource=drift_resource)
+        logger.warning(DRIFT_WAS_PROBABLY_FIXED_MESSAGE, resource=notification_sample)
 
 
 def lambda_handler(event: Dict[str, Any], context: LambdaContext):
@@ -101,11 +72,13 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext):
         # Parse the notification event to a model
         notification_event = NotificationEvent(**event_body)
 
-        # query Firefly inventory route to find the resources from the event received
-        items = get_inventory(notification_event)
-
+        # for each notification sample -
         # query Firefly search and fix drift route for opening a PR to fix the needed drift.
-        fix_drift(items['responseObjects'])
+        for sample in notification_event.samples:
+            fix_drift(sample)
+
+        logger.info(f"Finished working on message.", event=event)
+
     except Exception as ex:
-        logger.error(f"got unexpected exception from lambda runner", ex=ex, event=event)
+        logger.error(f"got unexpected exception from lambda runner.", ex=ex, event=event)
         raise Exception(f"got unexpected exception from lambda runner. ex={ex}, event={event}")

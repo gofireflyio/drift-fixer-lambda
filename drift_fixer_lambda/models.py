@@ -26,9 +26,9 @@ class FireflySession(BaseModel):
         self.tokenType = new_credentials['tokenType']
 
     def is_token_expired(self):
-        dt = datetime.fromtimestamp(self.expiresAt)
-        expiration_with_buffer = dt + timedelta(minutes=5)
-        return expiration_with_buffer > datetime.now()
+        expire_at = datetime.fromtimestamp(self.expiresAt)
+        time_to_expire = expire_at - datetime.now()
+        return time_to_expire <= timedelta(minutes=10)
 
 
 class Drift(BaseModel):
