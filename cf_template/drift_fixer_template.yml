@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Firefly Drift Fixer Lambda
+
+Mappings:
+  FireflyEnvironment:
+    env:
+      driftFixerLambdaName: "firefly-drift-fixer"
+
+Parameters:
+  FireflyAccessKey:
+    Type: String
+    Description: Access Key for Firefly
+  FireflySecretKey:
+    Type: String
+    Description: Secret Key for Firefly
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Parameters:
+          - ExternalID
+    ParameterLabels:
+      ExternalID:
+        default: ExternalID
+
+Conditions: {}
+Resources:
+
+  FireflyDriftFixerLambdaPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Resource:
+              - 'arn:aws:logs:*:*:*'
+
+  FireflyDriftFixerLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !FindInMap
+                    - FireflyEnvironment
+                    - env
+                    - driftFixerLambdaName
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - !Ref FireflyDriftFixerLambdaPolicy
+
+  FireflyDriftFixerLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: !FindInMap
+                    - FireflyEnvironment
+                    - env
+                    - driftFixerLambdaName
+      Description: Drift Fixer Lambda invoked by Fucntion URI.
+      PackageType: Image
+      Code:
+        ImageUri:
+          !Join
+          - ""
+          - - '094724549126.dkr.ecr.'
+            - !Ref "AWS::Region"
+            - '.amazonaws.com/drift-fixer-lambda:latest'
+      MemorySize: 128
+      Timeout: 180
+      Environment:
+        Variables:
+          FIREFLY_ACCESS_KEY: !Ref FireflyAccessKey
+          FIREFLY_SECRET_KEY: !Ref FireflySecretKey
+      Role:
+        "Fn::GetAtt": [ "FireflyDriftFixerLambdaRole", "Arn" ]
+
+  FireflyDriftFixerLambdaFunctionURL:
+    Type: 'AWS::Lambda::Url'
+    Properties:
+      AuthType: 'NONE'
+      InvokeMode: 'BUFFERED'
+      TargetFunctionArn:
+        "Fn::GetAtt": [ "FireflyDriftFixerLambdaFunction", "Arn" ]
+
+  FireflyDriftFixerLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunctionUrl"
+      FunctionName:
+        "Fn::GetAtt": [ "FireflyDriftFixerLambdaFunction", "Arn" ]
+      Principal: "*"
+      FunctionUrlAuthType: "NONE"
+
+Outputs:
+
+  DriftFixerLambdaArn:
+    Description: Firefly Drift Fixer lambda ARN
+    Value: !GetAtt FireflyDriftFixerLambdaFunction.Arn
+
+  DriftFixerLambdaFunctionUrl:
+    Description: Firefly Drift Fixer lambda function URL
+    Value: !GetAtt FireflyDriftFixerLambdaFunctionURL.FunctionUrl
