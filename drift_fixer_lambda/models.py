@@ -38,23 +38,6 @@ class Drift(BaseModel):
     providerValue: str
 
 
-class OwnerDataUserIdentity(BaseModel):
-    arn: str
-    customColor: str
-    displayName: str
-    initials: str
-    type: str
-    email: Optional[str]
-
-
-class OwnerData(BaseModel):
-    eventName: str
-    eventTime: str
-    otherOwnerData: Optional[Dict]
-    userIdentity: OwnerDataUserIdentity
-    workflowId: str
-
-
 class Sample(BaseModel):
     ARN: str
     FRN: str
@@ -68,7 +51,6 @@ class Sample(BaseModel):
     isLocked: bool
     lastResourceStateChange: str
     name: str
-    ownerData: Optional[OwnerData]
     tags: str
 
 
