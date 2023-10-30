@@ -6,8 +6,14 @@ from drift_fixer_lambda import models
 from drift_fixer_lambda.models import NotificationEvent, FireflySession
 from utils import login_external_api
 from typing import Any, Dict
+import sys
 
 logger = loguru.logger
+logger.remove()
+logger.add(
+    sink=sys.stdout,
+    format='{level: <8} | {message} | {extra}',
+)
 SETTINGS = models.DriftFixerConsumerSettings()
 INVENTORY_ROUTE = "inventory/v1"
 SEARCH_AND_FIX_DRIFT_ROUTE = "searchfixdrift/v1"
@@ -48,7 +54,7 @@ def fix_drift(notification_sample):
 
 def lambda_handler(event: Dict[str, Any], context: LambdaContext):
     try:
-        logger.info(f"incoming message.", event=event)
+        logger.info(f"incoming message.", event=event.get('body', {}))
 
         try:
             event_body = json.loads(event.get('body'))
@@ -77,7 +83,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext):
         for sample in notification_event.samples:
             fix_drift(sample)
 
-        logger.info(f"Finished working on message.", event=event)
+        logger.info(f"Finished working on message.")
 
     except Exception as ex:
         logger.error(f"got unexpected exception from lambda runner.", ex=ex, event=event)
