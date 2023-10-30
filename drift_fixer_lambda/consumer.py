@@ -11,7 +11,7 @@ logger = loguru.logger
 SETTINGS = models.DriftFixerConsumerSettings()
 INVENTORY_ROUTE = "inventory/v1"
 SEARCH_AND_FIX_DRIFT_ROUTE = "searchfixdrift/v1"
-DRIFT_WAS_PROBABLY_FIXED_MESSAGE = "We found all drifted properties. There is no change in the property values. The drift was probably fixed."
+DRIFT_WAS_PROBABLY_FIXED_MESSAGE = "Cannot fix drift. Either there is no code refrence, or we found all drifted properties and there is no change in the property values."
 
 # get session globally
 firefly_session_token = FireflySession(
